@@ -4,7 +4,16 @@ from requests import get as wget
 from requests.exceptions import RequestException
 from cv2 import imread
 import requests
-from html.parser import HTMLParser as hp
+import platform
+from operator import itemgetter
+
+if platform.system() == 'Linux':
+    from HTMLParser import HTMLParser as hp
+elif platform.system() == 'Windows':
+    from html.parser import HTMLParser as hp
+else:
+    print('OS not currently supported')
+    sys.exit(-1)
 
 from os import \
     makedirs as f_mkdir, \
@@ -18,6 +27,8 @@ from os.path import \
     splitext as f_splitext, \
     dirname as f_dir
 
+h_links = []
+
 
 class Dataset(object):
     """
@@ -28,12 +39,13 @@ class Dataset(object):
 
         self.src = src
         self.dest = dest
-        self.sub_dirs = ('s{}'.format(i) for i in range(1, 41))
+        self.sub_dirs = ['s{}'.format(i) for i in range(1, 41)]
         # Will load faces by category as list in dict
         self.faces = {i: [] for i in self.sub_dirs}
         self.backs = []
-        self.h_links = []
-        self.auth = (getpass('user: '), getpass('pswd: '))
+        #self.h_links = []
+        if download:
+            self.auth = (getpass('user: '), getpass('pswd: '))
 
         if not f_exists(self.dest):
             f_mkdir(self.dest)
@@ -77,7 +89,7 @@ class Dataset(object):
         print('Downloading: {}'.format(f_base(url)))
         names = []
         for sub in self.sub_dirs:
-            dir_link = f_join(url, sub)
+            dir_link = '/'.join((url, sub))
             names = self._download_all(dir_link, dest=f_join(self.dest, sub))
         return names
 
@@ -97,8 +109,8 @@ class Dataset(object):
 
             # Reading in backgrounds
             files = f_list(self.back_f_path)
-            sfiles = sorted([int(f_splitext(f)[-5]) for f in files])
-            self.back_files = tuple('{}.jpg'.format(i) for i in sfiles)
+            sfiles = sorted([int(f[f.rfind('_') + 1:]) for f in map(itemgetter(0), map(f_splitext, files))])
+            self.back_files = tuple('{}{}.jpg'.format('jan-12-2005-wh107_', i) for i in sfiles)
 
             for f in self.back_files:
                 p = f_join(f_cwd(), f_join(self.back_f_path, f))
@@ -130,26 +142,24 @@ class Dataset(object):
 
     class _HrefParser(hp):
         def handle_starttag(self, tag, attrs):
-            # print tag
             try:
                 href = dict(attrs)['href']
                 if href.endswith('.jpg') or href.endswith('.pgm'):
-                    Dataset.h_links.append(href)
+                    h_links.append(href)
             except (KeyError, TypeError):
                 pass
 
     def _download_all(self, url, dest=None):
         if dest is None:
             dest = self.dest
-        self.h_links[:] = []
+        h_links[:] = []
         href = self._HrefParser()
         print(url)
-        # Breaking here with cannot convert bytes to str implicitly
-        href.feed(requests.get(url, auth=self.auth).content)
+        href.feed(str(requests.get(url, auth=self.auth).content))
         _names = []
-        for link in self.h_links:
+        for link in h_links:
             _names.append(
-                self._download(f_join(url, link), dest=dest))
+                self._download('/'.join((url, link)), dest=dest))
         return _names
 
     def _download(self, url, dest):
