@@ -5,6 +5,13 @@ import os
 
 
 def grablog():
+    '''
+    Call this function from anywhere in the project (assuming it is imported).
+    It will return the single logger instance used to record errors to the
+    console stream, and general information to a file located in the project
+    directory called fdmain.log.
+    :return: The configured logger for this project.
+    '''
     # grab named logger from this directory
     logpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fdmain.log')
     log = logging.getLogger(logpath)
