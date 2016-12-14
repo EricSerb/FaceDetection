@@ -1,5 +1,32 @@
 import argparse as ap
 from utils import Dataset
+import logging
+import os
+
+
+def grablog():
+    # grab named logger from this directory
+    logpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fdmain.log')
+    log = logging.getLogger(logpath)
+
+    # logger stream handler setup
+    fh = logging.FileHandler()
+    ch = logging.StreamHandler()
+
+    # set levels of what to log for stream and file
+    fh.setLevel(logging.INFO)
+    ch.setLevel(logging.ERROR)
+
+    # create formatter for handler and add to logger
+    fmt = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s')
+    fh.setFormatter(fmt)
+    ch.setFormatter(fmt)
+
+    # attach the handlers to the logger
+    log.addHandler(fh)
+    log.addHandler(ch)
+    
+    return log
 
 
 def run():
