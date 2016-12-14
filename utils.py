@@ -51,8 +51,6 @@ class Dataset(object):
             f_mkdir(self.dest)
 
         for url in src:
-            # TODO need a statement to take care of the Haar features if we
-            # use them
             if isinstance(url, (bytes, str)) and download and (f_base(
                     url).strip() == 'background' or f_base(url).strip() ==
                     'lab3_info'):
@@ -77,13 +75,6 @@ class Dataset(object):
         self.load()
         assert self.faces
         assert self.backs
-
-        # self.testcases = None
-        # if type(cases) in (int, float):
-        #     self.settests(int(cases))
-        # else:
-        #     self.testcases = list(flatten(cases)) \
-        #         if cases is not None else []
 
     def download_faces(self, url):
         print('Downloading: {}'.format(f_base(url)))
@@ -144,7 +135,12 @@ class Dataset(object):
         def handle_starttag(self, tag, attrs):
             try:
                 href = dict(attrs)['href']
-                if href.endswith('.jpg') or href.endswith('.pgm'):
+                # Adding .c, .o, .h to get the files for the random image
+                # generator that we may need later on
+                # There is also .lis files if we need those at all
+                if href.endswith('.jpg') or href.endswith('.pgm') or \
+                        href.endswith('.c') or href.endswith('.h') or \
+                        href.endswith('.o'):
                     h_links.append(href)
             except (KeyError, TypeError):
                 pass

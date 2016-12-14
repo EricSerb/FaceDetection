@@ -40,8 +40,8 @@ def run():
                         'http://www.cs.fsu.edu/~liux/courses/cap5415-2016'
                         '/assignments/lab3_info/background',
                         # This is the Haar features... Not sure if needed yet
-                        # 'http://www.cs.fsu.edu/~liux/courses/cap5415-2014'
-                        # '/assignments/lab3_info'
+                        'http://www.cs.fsu.edu/~liux/courses/cap5415-2014'
+                        '/assignments/lab3_info'
                         ],
             'help': 'specify url resource',
         }),
