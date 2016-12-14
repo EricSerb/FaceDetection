@@ -2,10 +2,10 @@ These commands are for Linux, the opencv_traincascade should work for Windows as
 
 
 #create a txt file with pos image names
-find ./positive_images -iname "*.jpg" > positives.txt
+find ./positive_images -iname "*.png" > positives.txt
 
 #create a txt file with neg image names
-find ./negative_images -iname "*.jpg" > negatives.txt
+find ./negative_images -iname "*.png" > negatives.txt
 
 #Perl script that uses the opencv_createsamples to create a set of .vec files in the samples folder from the positive and neg images
  #The -w and -h are set to the size of the pos images
