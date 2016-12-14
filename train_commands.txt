@@ -1,0 +1,24 @@
+These commands are for Linux, the opencv_traincascade should work for Windows as well as long as opencv is installed
+
+
+#create a txt file with pos image names
+find ./positive_images -iname "*.jpg" > positives.txt
+
+#create a txt file with neg image names
+find ./negative_images -iname "*.jpg" > negatives.txt
+
+#Perl script that uses the opencv_createsamples to create a set of .vec files in the samples folder from the positive and neg images
+ #The -w and -h are set to the size of the pos images
+perl createsamples.pl positives.txt negatives.txt samples 1500\
+  "opencv_createsamples -bgcolor 0 -bgthresh 0 -maxxangle 1.1\
+  -maxyangle 1.1 maxzangle 0.5 -maxidev 40 -w 92 -h 112"
+
+#Merge set of .vec files in samples folder into a single samples.vec file
+python mergevec.py -v samples/ -o samples.vec
+
+#This is the function that creates the Haar cascade from samples.vec
+opencv_traincascade -data ./classifier -vec ./samples.vec -bg negatives.txt  -numStages 20 -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos 1000  -numNeg 700 -w 92 -h 112 -mode ALL -precalcValBufSize 4000  -precalcIdxBufSize 4000
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Instead of creating a Haar cascade this will create a cascade with LBP (Local Binary Patterns)
+opencv_traincascade -data ./classifier -vec ./samples.vec -bg negatives.txt  -numStages 20 -minHitRate 0.999 -maxFalseAlarmRate 0.5 -numPos 1000  -numNeg 700 -w 92 -h 112 -mode ALL -precalcValBufSize 4000  -precalcIdxBufSize 4000 -featureType LBP

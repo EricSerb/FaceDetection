@@ -3,5 +3,6 @@ __pycache__*
 res
 res/*
 *.pyc
-training
+training*
 training/*
+
