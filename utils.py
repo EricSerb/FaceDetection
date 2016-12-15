@@ -5,11 +5,15 @@ import requests
 import platform
 from operator import itemgetter
 import logging
-from subprocess import call
+from subprocess import call, Popen, PIPE
 from os import \
     makedirs as f_mkdir, \
     listdir as f_list, \
-    getcwd as f_cwd
+    getcwd as f_cwd, \
+    chdir as f_cd, \
+    rename as f_rename, \
+    remove as f_rm, \
+    system as f_sys
 
 from os.path import \
     exists as f_exists, \
@@ -17,7 +21,8 @@ from os.path import \
     basename as f_base, \
     splitext as f_splitext, \
     dirname as f_dir, \
-    realpath as f_rpath
+    realpath as f_rpath, \
+    isfile as f_file
 
 if platform.system() == 'Linux':
     from HTMLParser import HTMLParser as hp
@@ -52,8 +57,8 @@ def grablog(name):
     ch.setLevel(logging.ERROR)
 
     # create formatter for handler and add to logger
-    fmt = logging.Formatter('%(asctime)s  %(name)-16s %(levelname)-8s: %(message)s',
-                            datefmt='%y-%m-%d %H:%M.%S')
+    fmt = logging.Formatter('%(asctime)s  %(name)-16s %(levelname)-8s: '
+                            '%(message)s', datefmt='%y-%m-%d %H:%M.%S')
     fh.setFormatter(fmt)
     ch.setFormatter(fmt)
 
@@ -106,9 +111,12 @@ class Dataset(object):
         logger.info('Faces: {}'.format(self.face_f_path))
 
         '''
-        # This is the code for loading the original images in, but we need to use the c program to create test images
-        # and then load those in. C program will load in images from directories directly to the c program
-        # TODO take this code out since we don't actually need to load these files in....
+        # This is the code for loading the original images in, but we need
+        # to use the c program to create test images and then load those in.
+        # C program will load in images from directories directly to the c
+        # program
+        # TODO take this code out since we don't actually need to load
+        # these files in....
         self.load()
         for key in self.faces:
             assert self.faces[key] != []
@@ -119,7 +127,8 @@ class Dataset(object):
         names = []
         for sub in self.sub_dirs:
             dir_link = '/'.join((url, sub))
-            names = self._download_all(dir_link, dest=f_join(self.dest, f_base(url), sub))
+            names = self._download_all(dir_link, dest=f_join(self.dest,
+                                                             f_base(url), sub))
         return names
 
     def download(self, url):
@@ -137,8 +146,10 @@ class Dataset(object):
 
             # Reading in backgrounds
             files = f_list(self.back_f_path)
-            sfiles = sorted([int(f[f.rfind('_') + 1:]) for f in map(itemgetter(0), map(f_splitext, files))])
-            self.back_files = tuple('{}{}.png'.format('jan-12-2005-wh107_', i) for i in sfiles)
+            sfiles = sorted([int(f[f.rfind('_') + 1:]) for f in
+                             map(itemgetter(0), map(f_splitext, files))])
+            self.back_files = tuple('{}{}.png'.format('jan-12-2005-wh107_', i)
+                                    for i in sfiles)
 
             for f in self.back_files:
                 p = f_join(f_cwd(), f_join(self.back_f_path, f))
@@ -158,6 +169,7 @@ class Dataset(object):
         except (OSError, IOError) as e:
             logger.error('Did you forget to download the data with \'-r\'?')
             logger.error('Or maybe check your permissions?')
+            logger.error(e)
             raise e
 
     def __iter__(self):
@@ -200,43 +212,100 @@ class Dataset(object):
             f_mkdir(dest)
         url_base = f_base(url)
         name = f_join(dest, url_base)
-        if f_splitext(url_base)[1] in ['.c', '.o', '.h', '.lis'] or url_base == 'makefile':
+        if f_splitext(url_base)[1] in ['.c', '.o', '.h', '.lis'] \
+                or url_base == 'makefile':
             name = f_join(self.dest, url_base)
         with open(name, 'wb') as out:
             out.write(requests.get(url, auth=self.auth).content)
         return name
 
 
-def clean_compile():
+def clean_compile(res_dir):
     """
-    This function is used to clean and compile the testimage program that is needed later
+    This function is used to clean and compile the testimage program that is
+    needed later
     :return: None
     """
-    logger.info("Cleaning and compiling testimage...")
     try:
+        path = f_join('.', res_dir)
+        logger.info("Moving to {} from {}".format(path, f_base(f_cwd())))
+        f_cd(path)
+    except OSError as e:
+        logger.error("{} could not found or could not be accessed".format(path))
+        logger.error(e)
+        raise e
+    try:
+        # Must first move to res dir so that in the same place as the make file
+        logger.info("Cleaning and compiling testimage...")
         call(["make", "clean"])
         call(["make"])
     except OSError as e:
         logger.error("Make clean or make failed")
+        logger.error(e)
         raise e
     logger.info("Successful clean and compile")
+    f_cd('..')
 
 
-def create_test_imgs():
+def _gather_tests(test_im_dir):
+    if not f_exists(test_im_dir):
+        f_mkdir(test_im_dir)
+    files = [f for f in map(f_rpath, f_list(f_cwd())) if f_file(f) and
+             "background" in f_splitext(f_base(f))[0] and
+             ".lis" != f_splitext(f_base(f))[1]]
+    for f in files:
+        f_rename(f, f_join(f_dir(f), test_im_dir, f_base(f)))
+
+
+def _rm_old_tests(test_im_dir):
+    if f_exists(test_im_dir):
+        files = [f for f in map(f_rpath, f_list(test_im_dir)) if f_file(f) and
+                 "background" in f_splitext(f_base(f))[0]]
+        for f in files:
+            f_rm(f)
+
+
+def create_test_imgs(res_dir, exe="./testimage", num_test=10,
+                     test_im_dir="test_images"):
     """
-    This function will be called to create test images using the c code provided by Dr. Liu
+    This function will be called to create test images using the c code
+    provided by Dr. Liu
     Args that can be passed to testimage:
-    -m: 0 = slow pixel by pixel matching, 1 = Fast tempalte matching, 2 = Real-time based on Haar features
+    -m: 0 = slow pixel by pixel matching, 1 = Fast tempalte matching,
+        2 = Real-time based on Haar features
     -t: number of test images. Max is 100 default is 10
     -f: path to facelist
     -b: path to background list
     -v: verbose
-    -o: occlusion. Takes height and width to be occluded on each positive image window
+    -o: occlusion. Takes height and width to be occluded on each positive image
+        window
     -s: seed
+    :param res_dir: The results directory where the executable file is stored
+    :param exe: The name of the executable file
+    :param num_test: The number of test images requested
     :return: This will create images for testing
     """
-    logger.info("Creating test images")
-    # May want to delete previous images before running this each time so no old images are left from previous runs
+    # May want to delete previous images before running this each time so no
+    # old images are left from previous runs
     # This will probably need to be changed for windows
-    call(["res/testimage", "-m", "2"])
+
+    logger.info("Creating test images")
+    try:
+        f_cd(res_dir)
+        test_im_dir = f_join(f_cwd(), test_im_dir)
+        _rm_old_tests(test_im_dir)
+        # f_sys(" ".join((exe, "-m", "2", "-t", str(num_test))))
+        p = Popen([exe, "-m", "2", "-t", str(num_test)], stdout=PIPE)
+        logger.info("Output of {}:".format(exe))
+        logger.info("\n{}".format(p.stdout.read()))
+        p.wait()
+        if p.returncode < 0:
+            logger.error("Failed to fully run {}".format(exe))
+            raise OSError
+        _gather_tests(test_im_dir)
+        f_cd('..')
+    except OSError as e:
+        logger.error("Cannot find/execute {}".format(exe))
+        logger.error(e)
+        raise e
     logger.info("Finished creating test images")

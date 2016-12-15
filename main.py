@@ -3,7 +3,7 @@ from utils import Dataset, grablog, create_test_imgs, clean_compile
 from face_detector import FaceDetection
 import os
 from time import clock
-from platform import platform
+from platform import system
 
 # res directory folders to check and ensure they exists and contain files
 dirs = ["orldataset", "background"]
@@ -15,6 +15,7 @@ def run():
     :return: None
     """
     logger = grablog(os.path.basename(__file__))
+    logger.info("\n\n Running Face Detection")
     p = ap.ArgumentParser(
         prog='vis_proj',
         formatter_class=ap.ArgumentDefaultsHelpFormatter,
@@ -58,9 +59,14 @@ def run():
             'help': 'specify results directory',
         }),
         'c': ('cascade', {
-            # this will be changed to 'haar_cascade/cascade.xml' once finished creating
+            # this will be changed to 'haar_cascade/cascade.xml'
+            # once finished creating
             'default': 'lbp_classifier/cascade.xml',
             'help': 'specify cascade.xml file to use for detection',
+        }),
+        't': ('test_imgs', {
+            'default': 'test_images',
+            'help': 'directory where test images can be found in res directory',
         }),
     }
 
@@ -71,51 +77,62 @@ def run():
     # setup
     args = p.parse_args()
     if args.retrieve:
-        # This probably does not need to be a class now but it is for the time being
+        # This probably does not need to be a class now but it is for the time
+        # being
         # Refactor later
         logger.info("Starting downloads...")
         Dataset(args.src, args.dir)
         logger.info("Finished downloads")
 
-    # This is to ensure we have files for the c program to use to create test images
+    # This is to ensure we have files for the c program to use to create test
+    # images
     try:
         for d in dirs:
             files = os.listdir(os.path.join(args.dir, d))
             assert files != []
     except (AssertionError, OSError) as e:
-        logger.error("Directory does not exist or contains no files. Rerun with download flag -r")
+        logger.error("Directory does not exist or contains no files."
+                     "Rerun with download flag -r")
+        logger.error(e)
         raise e
 
-    clean_compile()
-    create_test_imgs()
+    clean_compile(args.dir)
+    create_test_imgs(args.dir, test_im_dir=args.test_imgs)
 
     logger.info("Retrieving test images...")
-    face_dtec = FaceDetection(args.cascade, args.dir, os.path.join(args.dir, "found_faces"))
+    face_dtec = FaceDetection(args.cascade,
+                              os.path.join(args.dir, args.test_imgs),
+                              os.path.join(args.dir, "found_faces"))
     logger.info("Finished retrieving test images")
 
     # All images have been downloaded, converted, and loaded in
     # Start of actual testing
     times = []
 
-    if platform() == 'Linux':
-        for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray, face_dtec.test_im_names):
+    if system() == 'Linux':
+        logger.info("Starting testing phase on Linux....")
+        for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
+                                    face_dtec.test_im_names):
             start = clock()
             face_dtec.detect_faces(gray)
-            face_dtec.alter_faces(norm)
+            norm = face_dtec.alter_faces(norm)
             times.append(clock() - start)
-            face_dtec.show(norm, name)
+            # face_dtec.show(norm, name)
             face_dtec.save(norm, name)
 
-    elif platform() == 'Windows':
-        for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray, face_dtec.test_im_names):
+    elif system() == 'Windows':
+        logger.info("Starting testing phase on Windows....")
+        for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
+                                    face_dtec.test_im_names):
             clock()
             face_dtec.detect_faces(gray)
             face_dtec.alter_faces(norm)
             times.append(clock())
             face_dtec.show(norm, name)
             face_dtec.save(norm, name)
-
-    logger.info("It took {0:0.8f} seconds to detect and alter {1:d} images".format(sum(times), len(face_dtec.test_img)))
+    logger.info("Testing complete")
+    logger.info("It took {0:0.8f} seconds to detect and alter {1:d} "
+                "images".format(sum(times), len(face_dtec.test_img)))
 
 
 if __name__ == "__main__":

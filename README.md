@@ -1,6 +1,16 @@
 # FaceDetection
 Computer Vision Final Project FSU 2016
 
+Currently only supports Linux
+
+________________________________________________________________________
+
+Required libraries:
+Numpy - Opencv uses this
+Opencv 3.x - Must contain CascadeClassifier that accepts xml files
+
+________________________________________________________________________
+
 Information on opencv face detection:
 http://docs.opencv.org/trunk/d7/d8b/tutorial_py_face_detection.html
 
