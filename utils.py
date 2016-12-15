@@ -1,20 +1,10 @@
 import sys
 from getpass import getpass
-from requests import get as wget
-from requests.exceptions import RequestException
 from cv2 import imread
 import requests
 import platform
 from operator import itemgetter
-
-if platform.system() == 'Linux':
-    from HTMLParser import HTMLParser as hp
-elif platform.system() == 'Windows':
-    from html.parser import HTMLParser as hp
-else:
-    print('OS not currently supported')
-    sys.exit(-1)
-
+import logging
 from os import \
     makedirs as f_mkdir, \
     listdir as f_list, \
@@ -25,7 +15,16 @@ from os.path import \
     join as f_join, \
     basename as f_base, \
     splitext as f_splitext, \
-    dirname as f_dir
+    dirname as f_dir, \
+    realpath as f_rpath
+
+if platform.system() == 'Linux':
+    from HTMLParser import HTMLParser as hp
+elif platform.system() == 'Windows':
+    from html.parser import HTMLParser as hp
+else:
+    print('OS not currently supported')
+    sys.exit(-1)
 
 h_links = []
 
@@ -43,7 +42,7 @@ class Dataset(object):
         # Will load faces by category as list in dict
         self.faces = {i: [] for i in self.sub_dirs}
         self.backs = []
-        #self.h_links = []
+        # self.h_links = []
         if download:
             self.auth = (getpass('user: '), getpass('pswd: '))
 
@@ -101,7 +100,7 @@ class Dataset(object):
             # Reading in backgrounds
             files = f_list(self.back_f_path)
             sfiles = sorted([int(f[f.rfind('_') + 1:]) for f in map(itemgetter(0), map(f_splitext, files))])
-            self.back_files = tuple('{}{}.jpg'.format('jan-12-2005-wh107_', i) for i in sfiles)
+            self.back_files = tuple('{}{}.png'.format('jan-12-2005-wh107_', i) for i in sfiles)
 
             for f in self.back_files:
                 p = f_join(f_cwd(), f_join(self.back_f_path, f))
@@ -140,7 +139,7 @@ class Dataset(object):
                 # There is also .lis files if we need those at all
                 if href.endswith('.jpg') or href.endswith('.pgm') or \
                         href.endswith('.c') or href.endswith('.h') or \
-                        href.endswith('.o'):
+                        href.endswith('.o') or href.endswith('.lis'):
                     h_links.append(href)
             except (KeyError, TypeError):
                 pass
@@ -165,3 +164,39 @@ class Dataset(object):
         with open(name, 'wb') as out:
             out.write(requests.get(url, auth=self.auth).content)
         return name
+
+
+def grablog():
+    '''
+    Call this function from anywhere in the project (assuming it is imported).
+    It will return the single logger instance used to record errors to the
+    console stream, and general information to a file located in the project
+    directory called fdmain.log.
+    :return: The configured logger for this project.
+    '''
+    # grab named logger from this directory
+    logpath = f_join(f_dir(f_rpath(__file__)), 'fdmain.log')
+    log = logging.getLogger(logpath)
+
+    # logger stream handler setup
+    fh = logging.FileHandler()
+    ch = logging.StreamHandler()
+
+    # set levels of what to log for stream and file
+    fh.setLevel(logging.INFO)
+    ch.setLevel(logging.ERROR)
+
+    # create formatter for handler and add to logger
+    fmt = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s')
+    fh.setFormatter(fmt)
+    ch.setFormatter(fmt)
+
+    # attach the handlers to the logger
+    log.addHandler(fh)
+    log.addHandler(ch)
+
+    return log
+
+
+def create_test_imgs():
+    pass

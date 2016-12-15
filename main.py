@@ -1,39 +1,6 @@
 import argparse as ap
 from utils import Dataset
-import logging
-import os
-
-
-def grablog():
-    '''
-    Call this function from anywhere in the project (assuming it is imported).
-    It will return the single logger instance used to record errors to the
-    console stream, and general information to a file located in the project
-    directory called fdmain.log.
-    :return: The configured logger for this project.
-    '''
-    # grab named logger from this directory
-    logpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fdmain.log')
-    log = logging.getLogger(logpath)
-
-    # logger stream handler setup
-    fh = logging.FileHandler()
-    ch = logging.StreamHandler()
-
-    # set levels of what to log for stream and file
-    fh.setLevel(logging.INFO)
-    ch.setLevel(logging.ERROR)
-
-    # create formatter for handler and add to logger
-    fmt = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s')
-    fh.setFormatter(fmt)
-    ch.setFormatter(fmt)
-
-    # attach the handlers to the logger
-    log.addHandler(fh)
-    log.addHandler(ch)
-    
-    return log
+from face_detector import FaceDetection
 
 
 def run():
@@ -83,6 +50,11 @@ def run():
             'default': 'res',
             'help': 'specify results directory',
         }),
+        'c': ('cascade', {
+            # this will be changed to 'haar_cascade/cascade.xml' once finished creating
+            'default': 'lbp_classifier/cascade.xml',
+            'help': 'specify cascade.xml file to use for detection',
+        }),
     }
 
     for i in pargs:
@@ -92,7 +64,8 @@ def run():
     # setup
     args = p.parse_args()
     dset = Dataset(args.src, args.dir, download=args.retrieve)
-    print(len(dset.backs))
+    # Need code to call testimage.c and create testimages which can be passed to detector
+    face_dtec = FaceDetection(args.cascade)
 
 
 if __name__ == "__main__":
