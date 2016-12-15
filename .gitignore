@@ -5,4 +5,5 @@ res/*
 *.pyc
 training*
 training/*
-
+correct_training.zip
+*.log

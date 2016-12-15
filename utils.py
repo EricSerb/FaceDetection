@@ -5,6 +5,7 @@ import requests
 import platform
 from operator import itemgetter
 import logging
+from subprocess import call
 from os import \
     makedirs as f_mkdir, \
     listdir as f_list, \
@@ -29,70 +30,107 @@ else:
 h_links = []
 
 
+def grablog(name):
+    """
+    Call this function from anywhere in the project (assuming it is imported).
+    It will return the single logger instance used to record errors to the
+    console stream, and general information to a file located in the project
+    directory called fdmain.log.
+    :return: The configured logger with the module name
+    """
+    # grab named logger from this directory
+    logpath = f_join(f_dir(f_rpath(__file__)), 'fdmain.log')
+    log = logging.getLogger(name)
+    log.setLevel(logging.INFO)
+
+    # logger stream handler setup
+    fh = logging.FileHandler(logpath)
+    ch = logging.StreamHandler()
+
+    # set levels of what to log for stream and file
+    fh.setLevel(logging.INFO)
+    ch.setLevel(logging.ERROR)
+
+    # create formatter for handler and add to logger
+    fmt = logging.Formatter('%(asctime)s  %(name)-16s %(levelname)-8s: %(message)s',
+                            datefmt='%y-%m-%d %H:%M.%S')
+    fh.setFormatter(fmt)
+    ch.setFormatter(fmt)
+
+    # attach the handlers to the logger
+    log.addHandler(fh)
+    log.addHandler(ch)
+
+    return log
+
+
+logger = grablog(f_base(__file__))
+
+
 class Dataset(object):
     """
     Encapsualtion of our dataset operations.
     """
 
-    def __init__(self, src, dest, download=False):
-
+    def __init__(self, src, dest):
         self.src = src
         self.dest = dest
         self.sub_dirs = ['s{}'.format(i) for i in range(1, 41)]
         # Will load faces by category as list in dict
         self.faces = {i: [] for i in self.sub_dirs}
         self.backs = []
-        # self.h_links = []
-        if download:
-            self.auth = (getpass('user: '), getpass('pswd: '))
+        self.back_files = []
+        self.auth = (getpass('user: '), getpass('pswd: '))
 
         if not f_exists(self.dest):
             f_mkdir(self.dest)
 
         for url in src:
-            if isinstance(url, (bytes, str)) and download and (f_base(
-                    url).strip() == 'background' or f_base(url).strip() ==
-                    'lab3_info'):
+            logger.info("Downloading from {}".format(url))
+            if isinstance(url, (bytes, str)) and \
+                    (f_base(url) == 'background' or
+                     f_base(url) == 'lab3_info'):
                 self.download(url)
 
-            elif isinstance(url, (bytes, str)) and download and f_base(
-                    url).strip() == 'orldataset':
+            elif isinstance(url, (bytes, str)) and f_base(
+                    url) == 'orldataset':
                 # we have multiple dirs in faces folder need to get all
                 # face_names contains res_dir/sub/filename for each file and
                 #  sub dir
                 self.face_names = self.download_faces(url)
 
         self.back_f_path = f_join(self.dest, 'background')
-        print('Backgrounds: {}'.format(self.back_f_path))
+        logger.info('Backgrounds: {}'.format(self.back_f_path))
 
         self.face_f_path = f_join(self.dest, 'orldataset')
-        print('Faces: {}'.format(self.face_f_path))
+        logger.info('Faces: {}'.format(self.face_f_path))
 
-        # self.files = []
-        self.back_files = []
-        # self.imgs = {}
+        '''
+        # This is the code for loading the original images in, but we need to use the c program to create test images
+        # and then load those in. C program will load in images from directories directly to the c program
+        # TODO take this code out since we don't actually need to load these files in....
         self.load()
-        assert self.faces
-        assert self.backs
+        for key in self.faces:
+            assert self.faces[key] != []
+        assert self.backs != []
+        '''
 
     def download_faces(self, url):
-        print('Downloading: {}'.format(f_base(url)))
         names = []
         for sub in self.sub_dirs:
             dir_link = '/'.join((url, sub))
-            names = self._download_all(dir_link, dest=f_join(self.dest, sub))
+            names = self._download_all(dir_link, dest=f_join(self.dest, f_base(url), sub))
         return names
 
     def download(self, url):
         sub_dir = f_base(url)
         cur_dld_dir = f_join(self.dest, sub_dir)
-        print('Downloading: {}'.format(sub_dir))
         if not f_exists(cur_dld_dir):
             f_mkdir(cur_dld_dir)
         self._download_all(url, dest=cur_dld_dir)
 
     def load(self):
-        print('Loading images...')
+        logger.info('Loading images...')
         try:
             # This needs a seperate loop for the backgrounds and for faces
             # and Haar features if we end up using them.
@@ -118,8 +156,8 @@ class Dataset(object):
                 self.faces[sub_name].append(imread(p))
 
         except (OSError, IOError) as e:
-            print('Did you forget to download the data with \'-r\'?')
-            print('Or maybe check your permissions?')
+            logger.error('Did you forget to download the data with \'-r\'?')
+            logger.error('Or maybe check your permissions?')
             raise e
 
     def __iter__(self):
@@ -139,7 +177,8 @@ class Dataset(object):
                 # There is also .lis files if we need those at all
                 if href.endswith('.jpg') or href.endswith('.pgm') or \
                         href.endswith('.c') or href.endswith('.h') or \
-                        href.endswith('.o') or href.endswith('.lis'):
+                        href.endswith('.o') or href.endswith('.lis') or \
+                        href.endswith('makefile'):
                     h_links.append(href)
             except (KeyError, TypeError):
                 pass
@@ -149,7 +188,6 @@ class Dataset(object):
             dest = self.dest
         h_links[:] = []
         href = self._HrefParser()
-        print(url)
         href.feed(str(requests.get(url, auth=self.auth).content))
         _names = []
         for link in h_links:
@@ -160,43 +198,45 @@ class Dataset(object):
     def _download(self, url, dest):
         if not f_exists(dest):
             f_mkdir(dest)
-        name = f_join(dest, f_base(url))
+        url_base = f_base(url)
+        name = f_join(dest, url_base)
+        if f_splitext(url_base)[1] in ['.c', '.o', '.h', '.lis'] or url_base == 'makefile':
+            name = f_join(self.dest, url_base)
         with open(name, 'wb') as out:
             out.write(requests.get(url, auth=self.auth).content)
         return name
 
 
-def grablog():
-    '''
-    Call this function from anywhere in the project (assuming it is imported).
-    It will return the single logger instance used to record errors to the
-    console stream, and general information to a file located in the project
-    directory called fdmain.log.
-    :return: The configured logger for this project.
-    '''
-    # grab named logger from this directory
-    logpath = f_join(f_dir(f_rpath(__file__)), 'fdmain.log')
-    log = logging.getLogger(logpath)
-
-    # logger stream handler setup
-    fh = logging.FileHandler()
-    ch = logging.StreamHandler()
-
-    # set levels of what to log for stream and file
-    fh.setLevel(logging.INFO)
-    ch.setLevel(logging.ERROR)
-
-    # create formatter for handler and add to logger
-    fmt = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s')
-    fh.setFormatter(fmt)
-    ch.setFormatter(fmt)
-
-    # attach the handlers to the logger
-    log.addHandler(fh)
-    log.addHandler(ch)
-
-    return log
+def clean_compile():
+    """
+    This function is used to clean and compile the testimage program that is needed later
+    :return: None
+    """
+    logger.info("Cleaning and compiling testimage...")
+    try:
+        call(["make", "clean"])
+        call(["make"])
+    except OSError as e:
+        logger.error("Make clean or make failed")
+        raise e
+    logger.info("Successful clean and compile")
 
 
 def create_test_imgs():
-    pass
+    """
+    This function will be called to create test images using the c code provided by Dr. Liu
+    Args that can be passed to testimage:
+    -m: 0 = slow pixel by pixel matching, 1 = Fast tempalte matching, 2 = Real-time based on Haar features
+    -t: number of test images. Max is 100 default is 10
+    -f: path to facelist
+    -b: path to background list
+    -v: verbose
+    -o: occlusion. Takes height and width to be occluded on each positive image window
+    -s: seed
+    :return: This will create images for testing
+    """
+    logger.info("Creating test images")
+    # May want to delete previous images before running this each time so no old images are left from previous runs
+    # This will probably need to be changed for windows
+    call(["res/testimage", "-m", "2"])
+    logger.info("Finished creating test images")
