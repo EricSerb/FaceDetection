@@ -134,8 +134,10 @@ def run():
             logger.info("Starting testing phase on Linux....")
             for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
                                         face_dtec.test_im_names):
+                start = clock()
                 face_dtec.detect_faces(gray, args.occlusion)
                 norm = face_dtec.alter_faces(norm)
+                times.append(clock() - start)
                 face_dtec.save(norm, name)
 
                 if len(face_dtec.faces) > 0:
@@ -211,6 +213,10 @@ def run():
             # Draw a rectangle around the faces
             for x, y, w, h in faces:
                 roi_color = frame[y: y + h, x: x + w]
+
+                '''Code to produce rectangle around the found face'''
+                # cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+
                 '''
                 This function can take a number of arguments in place of
                 cv2.MORPH_x
