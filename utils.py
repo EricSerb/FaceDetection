@@ -305,7 +305,9 @@ def create_test_imgs(res_dir, exe="./testimage", num_test=10,
         test_im_dir = f_join(f_cwd(), test_im_dir)
         _rm_old_tests(test_im_dir)
         # f_sys(" ".join((exe, "-m", "2", "-t", str(num_test))))
-        p = Popen([exe, "-m", "2", "-t", str(num_test)], stdout=PIPE)
+        # p = Popen([exe, "-m", "2", "-t", str(num_test)], stdout=PIPE)
+        p = Popen([exe, "-m", "2", "-t", str(num_test), "-o", "3x4"],
+                  stdout=PIPE)
         logger.info("Output of {}:".format(exe))
         logger.info("\n{}".format(p.stdout.read()))
         p.wait()

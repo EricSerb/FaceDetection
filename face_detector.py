@@ -46,7 +46,13 @@ class FaceDetection(object):
         # Since Liu's code uses the pgm face image that is tiny we need to
         # look for a small area in the image and make sure we don't use any
         # areas that are too large!
-        self.faces = self.cascade.detectMultiScale(img, 1.08, 2,
+        '''These are the perfect settings without occlusion'''
+        # self.faces = self.cascade.detectMultiScale(img, 1.08, 2,
+        #                                            minSize=(10, 10),
+        #                                            maxSize=(40, 40))
+
+        '''100% detection with up to 3x4 occlusion'''
+        self.faces = self.cascade.detectMultiScale(img, 1.045, 2,
                                                    minSize=(10, 10),
                                                    maxSize=(40, 40))
 
