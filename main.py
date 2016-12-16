@@ -61,12 +61,10 @@ def run():
             'help': 'specify results directory',
         }),
         'c': ('cascade', {
-            # this will be changed to 'haar_cascade/cascade.xml'
-            # once finished creating
             # 'default': 'lbp_classifier/cascade.xml',
-            # 'default': 'open_cv_face_classifier/'
+            # 'default': 'haar_classifiers/'
             #            'haarcascade_frontalface_default.xml',
-            'default': 'open_cv_face_classifier/'
+            'default': 'haar_classifiers/'
                        'haarcascade_frontalface_alt2.xml',
             'help': 'specify cascade.xml file to use for detection',
         }),
