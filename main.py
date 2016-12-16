@@ -4,6 +4,7 @@ from face_detector import FaceDetection
 import os
 from time import clock
 from platform import system
+import cProfile, pstats, io
 
 # res directory folders to check and ensure they exists and contain files
 dirs = ["orldataset", "background"]
@@ -15,7 +16,6 @@ def run():
     :return: None
     """
     logger = grablog(os.path.basename(__file__))
-    logger.info("\n\n Running Face Detection")
     p = ap.ArgumentParser(
         prog='vis_proj',
         formatter_class=ap.ArgumentDefaultsHelpFormatter,
@@ -30,8 +30,11 @@ def run():
         # where { *args } is a dictionary of
         # keyword arguments used by p.parse_args
         #
-        'm': ('module', {
-            'help': 'choose a module to run',
+        'v': ('video', {
+            'default': False,
+            'action': 'store_true',
+            'help': 'Run local image face detection if False, '
+                    'otherwise run webcam face detection',
         }),
         'g': ('debug', {
             'default': False,
@@ -48,7 +51,6 @@ def run():
                         '/assignments/lab3_info/orldataset',
                         'http://www.cs.fsu.edu/~liux/courses/cap5415-2016'
                         '/assignments/lab3_info/background',
-                        # This is the Haar features... Not sure if needed yet
                         'http://www.cs.fsu.edu/~liux/courses/cap5415-2014'
                         '/assignments/lab3_info'
                         ],
@@ -62,15 +64,19 @@ def run():
             # this will be changed to 'haar_cascade/cascade.xml'
             # once finished creating
             # 'default': 'lbp_classifier/cascade.xml',
-            'default': 'open_cv_face_classifier/'
-                       'haarcascade_frontalface_default.xml',
             # 'default': 'open_cv_face_classifier/'
-            #            'haarcascade_frontalface_alt_tree.xml',
+            #            'haarcascade_frontalface_default.xml',
+            'default': 'open_cv_face_classifier/'
+                       'haarcascade_frontalface_alt2.xml',
             'help': 'specify cascade.xml file to use for detection',
         }),
         't': ('test_imgs', {
             'default': 'test_images',
             'help': 'directory where test images can be found in res directory',
+        }),
+        'n': ('num_tests', {
+            'default': '10',
+            'help': 'number of test images to be created',
         }),
     }
 
@@ -80,74 +86,97 @@ def run():
 
     # setup
     args = p.parse_args()
-    if args.retrieve:
-        # This probably does not need to be a class now but it is for the time
-        # being
-        # Refactor later
-        logger.info("Starting downloads...")
-        Dataset(args.src, args.dir)
-        logger.info("Finished downloads")
+    logger.info("\n\n Running Face Detection")
 
-    # This is to ensure we have files for the c program to use to create test
-    # images
-    try:
-        for d in dirs:
-            files = os.listdir(os.path.join(args.dir, d))
-            assert files != []
-    except (AssertionError, OSError) as e:
-        logger.error("Directory does not exist or contains no files."
-                     "Rerun with download flag -r")
-        logger.error(e)
-        raise e
+    if not args.video:
+        if args.retrieve:
+            # This probably does not need to be a class now but it is for
+            # the time being
+            # Refactor later
+            logger.info("Starting downloads...")
+            Dataset(args.src, args.dir)
+            logger.info("Finished downloads")
 
-    clean_compile(args.dir)
-    create_test_imgs(args.dir, test_im_dir=args.test_imgs)
+        # This is to ensure we have files for the c program to use to
+        # create test images
+        try:
+            for d in dirs:
+                files = os.listdir(os.path.join(args.dir, d))
+                assert files != []
+        except (AssertionError, OSError) as e:
+            logger.error("Directory does not exist or contains no files."
+                         "Rerun with download flag -r")
+            logger.error(e)
+            raise e
+        if system() == "Linux":
+            clean_compile(args.dir)
+            create_test_imgs(args.dir, test_im_dir=args.test_imgs,
+                             num_test=args.num_tests)
 
-    logger.info("Retrieving test images...")
-    face_dtec = FaceDetection(args.cascade,
-                              os.path.join(args.dir, args.test_imgs),
-                              os.path.join(args.dir, "found_faces"))
-    logger.info("Finished retrieving test images")
+        logger.info("Retrieving test images...")
+        face_dtec = FaceDetection(args.cascade,
+                                  os.path.join(args.dir, args.test_imgs),
+                                  os.path.join(args.dir, "found_faces"))
+        logger.info("Finished retrieving test images")
 
-    # All images have been downloaded, converted, and loaded in
-    # Start of actual testing
-    times = []
+        # All images have been downloaded, converted, and loaded in
+        # Start of actual testing
+        times = []
+        found = []
+        pr = cProfile.Profile()
+        pr.enable()
 
-    if system() == 'Linux':
-        logger.info("Starting testing phase on Linux....")
-        for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
-                                    face_dtec.test_im_names):
-            start = clock()
-            face_dtec.detect_faces(gray)
-            norm = face_dtec.alter_faces(norm)
-            times.append(clock() - start)
+        if system() == 'Linux':
+            logger.info("Starting testing phase on Linux....")
+            for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
+                                        face_dtec.test_im_names):
+                # start = clock()
+                face_dtec.detect_faces(gray)
+                norm = face_dtec.alter_faces(norm)
+                # times.append(clock() - start)
+                face_dtec.save(norm, name)
 
-            # Messing around with this profile face cascade to see if it works
-            face_dtec.detect_prof_faces(gray)
-            norm = face_dtec.alter_prof_faces(norm)
+                if len(face_dtec.faces) > 0:
+                    found.append(True)
+                else:
+                    found.append(False)
 
-            logger.info("Faces found in {}: {}".format(name, face_dtec.faces))
-            logger.info("Prof Faces found in {}: {}".format(name,
-                        face_dtec.prof_faces))
-            # face_dtec.show(norm, name)
-            face_dtec.save(norm, name)
+                # face_dtec.show(norm, name)
 
-    elif system() == 'Windows':
-        logger.info("Starting testing phase on Windows....")
-        for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
-                                    face_dtec.test_im_names):
-            clock()
-            face_dtec.detect_faces(gray)
-            face_dtec.alter_faces(norm)
-            times.append(clock())
-            face_dtec.show(norm, name)
-            face_dtec.save(norm, name)
-    logger.info("Testing complete")
-    for im_time, im_name in zip(times, face_dtec.test_im_names):
-        logger.info("It took {0:0.8f} seconds to detect and alter {1}"
-                    "".format(im_time, im_name))
-    logger.info("It took {0:0.8f} seconds to detect and alter {1:d} "
-                "images".format(sum(times), len(face_dtec.test_img)))
+        elif system() == 'Windows':
+            logger.info("Starting testing phase on Windows....")
+            for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
+                                        face_dtec.test_im_names):
+                # clock()
+                face_dtec.detect_faces(gray)
+                norm = face_dtec.alter_faces(norm)
+                # times.append(clock())
+                # face_dtec.show(norm, name)
+                face_dtec.save(norm, name)
+
+                if len(face_dtec.faces) > 0:
+                    found.append(True)
+                else:
+                    found.append(False)
+
+        logger.info("Testing complete")
+        pr.disable()
+        sortby = 'cumulative'
+        s = open("fdmain.log", "a")
+        ps = pstats.Stats(pr, stream=s).strip_dirs().sort_stats(sortby)
+        ps.print_stats()
+        s.close()
+        # for im_time, im_name in zip(times, face_dtec.test_im_names):
+        #     logger.info("It took {0:0.8f} seconds to detect and alter {1}"
+        #                 "".format(im_time, im_name))
+        # logger.info("It took {0:0.8f} seconds to detect and alter {1:d} "
+        #             "images".format(sum(times), len(face_dtec.test_img)))
+        # for f in zip(found, face_dtec.test_im_names):
+        #     logger.info("Images idenftied correctly {}".format(f))
+
+    else:
+        # Implementing the webcam code here
+        pass
 
 
 if __name__ == "__main__":

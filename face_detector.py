@@ -45,8 +45,8 @@ class FaceDetection(object):
         # Since Liu's code uses the pgm face image that is tiny we need to
         # look for a small area in the image and make sure we don't use any
         # areas that are too large!
-        self.faces = self.cascade.detectMultiScale(img, 1.05, 0,
-                                                   minSize=(15, 15),
+        self.faces = self.cascade.detectMultiScale(img, 1.089, 3,
+                                                   minSize=(10, 10),
                                                    maxSize=(40, 40))
         # self.faces = []
         # for x, y, w, h in faces:
@@ -65,8 +65,8 @@ class FaceDetection(object):
         # roi_color = img[y:y + h, x:x + w]
 
     def detect_prof_faces(self, img):
-        self.prof_faces = self.prof_cascade.detectMultiScale(img, 1.05, 3,
-                                                             minSize=(15, 15),
+        self.prof_faces = self.prof_cascade.detectMultiScale(img, 1.05, 1,
+                                                             minSize=(10, 10),
                                                              maxSize=(40, 40))
 
     def alter_prof_faces(self, img):

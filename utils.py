@@ -5,15 +5,14 @@ import requests
 import platform
 from operator import itemgetter
 import logging
-from subprocess import call, Popen, PIPE
+from subprocess import Popen, PIPE
+import shutil
 from os import \
     makedirs as f_mkdir, \
     listdir as f_list, \
     getcwd as f_cwd, \
     chdir as f_cd, \
-    rename as f_rename, \
-    remove as f_rm, \
-    system as f_sys
+    rename as f_rename
 
 from os.path import \
     exists as f_exists, \
@@ -273,10 +272,7 @@ def _gather_tests(test_im_dir):
 
 def _rm_old_tests(test_im_dir):
     if f_exists(test_im_dir):
-        files = [f for f in map(f_rpath, f_list(test_im_dir)) if f_file(f) and
-                 "background" in f_splitext(f_base(f))[0]]
-        for f in files:
-            f_rm(f)
+        shutil.rmtree(test_im_dir)
 
 
 def create_test_imgs(res_dir, exe="./testimage", num_test=10,

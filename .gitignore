@@ -7,4 +7,3 @@ training*
 training/*
 correct_training.zip
 *.log
-open_cv_face_classifier/haarcascade_frontalface_alt*
