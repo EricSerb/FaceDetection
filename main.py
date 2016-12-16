@@ -203,7 +203,7 @@ def run():
 
             faces = faceCascade.detectMultiScale(
                 gray,
-                scaleFactor=1.23,
+                scaleFactor=1.21,
                 minNeighbors=5,
                 minSize=(30, 30),
             )
@@ -217,8 +217,8 @@ def run():
                 Options in place of x:
                 OPEN, CLOSE, GRADIENT, TOPHAT, BLACKHAT'''
                 roi_color[:, :, :] = cv2.morphologyEx(
-                    roi_color, cv2.MORPH_GRADIENT, cv2.getStructuringElement(
-                     cv2.MORPH_ELLIPSE, (20, 20)))[:,:,:]
+                    roi_color, cv2.MORPH_CLOSE, cv2.getStructuringElement(
+                     cv2.MORPH_RECT, (20, 20)))[:,:,:]
                 '''
                 This line plus line 182 will allow you to look like Dr. Liu
                 '''
