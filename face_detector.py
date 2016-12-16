@@ -18,6 +18,7 @@ class FaceDetection(object):
         self.test_gray = []
         self.test_im_names = []
         self.save_dir = save_dir
+        self.blend_im = cv2.imread("Xiuwen_liu_Large.jpg")
         if not os.path.exists(self.save_dir):
             os.mkdir(self.save_dir)
         self.test_path = os.path.realpath(test_path)
@@ -45,39 +46,21 @@ class FaceDetection(object):
         # Since Liu's code uses the pgm face image that is tiny we need to
         # look for a small area in the image and make sure we don't use any
         # areas that are too large!
-        self.faces = self.cascade.detectMultiScale(img, 1.089, 3,
+        self.faces = self.cascade.detectMultiScale(img, 1.08, 2,
                                                    minSize=(10, 10),
                                                    maxSize=(40, 40))
-        # self.faces = []
-        # for x, y, w, h in faces:
-        #     if x+w > 120 or y+h > 150:
-        #         continue
-        #     self.faces.append([x,y,w,h])
 
     def alter_faces(self, img):
-        for (x, y, w, h) in self.faces:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        for x, y, w, h in self.faces:
+            # cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            roi_color = img[y: y+h, x: x+w]
+            '''Blur out images. options explained in main'''
+            roi_color[:, :, :] = cv2.morphologyEx(
+                roi_color, cv2.MORPH_BLACKHAT, cv2.getStructuringElement(
+                    cv2.MORPH_ELLIPSE, (20, 20)))[:, :, :]
+            '''Uncomment below to have Dr. Liu appear'''
+            # roi_color[:,:,:] = cv2.resize(self.blend_im, (w, h))[:,:,:]
         return img
-        # region of interest: may need this for altering specific area of
-        # an image just pass roi to the function that will alter the image
-        # and only that part of whole image altered
-        # roi_gray = gray[y:y + h, x:x + w]
-        # roi_color = img[y:y + h, x:x + w]
-
-    def detect_prof_faces(self, img):
-        self.prof_faces = self.prof_cascade.detectMultiScale(img, 1.05, 1,
-                                                             minSize=(10, 10),
-                                                             maxSize=(40, 40))
-
-    def alter_prof_faces(self, img):
-        for (x, y, w, h) in self.prof_faces:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        return img
-        # region of interest: may need this for altering specific area of
-        # an image just pass roi to the function that will alter the image
-        # and only that part of whole image altered
-        # roi_gray = gray[y:y + h, x:x + w]
-        # roi_color = img[y:y + h, x:x + w]
 
     @staticmethod
     def show(img, name):

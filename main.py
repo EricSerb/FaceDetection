@@ -130,10 +130,8 @@ def run():
             logger.info("Starting testing phase on Linux....")
             for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
                                         face_dtec.test_im_names):
-                # start = clock()
                 face_dtec.detect_faces(gray)
                 norm = face_dtec.alter_faces(norm)
-                # times.append(clock() - start)
                 face_dtec.save(norm, name)
 
                 if len(face_dtec.faces) > 0:
@@ -141,16 +139,14 @@ def run():
                 else:
                     found.append(False)
 
-                # face_dtec.show(norm, name)
+                    # face_dtec.show(norm, name)
 
         elif system() == 'Windows':
             logger.info("Starting testing phase on Windows....")
             for norm, gray, name in zip(face_dtec.test_img, face_dtec.test_gray,
                                         face_dtec.test_im_names):
-                # clock()
                 face_dtec.detect_faces(gray)
                 norm = face_dtec.alter_faces(norm)
-                # times.append(clock())
                 # face_dtec.show(norm, name)
                 face_dtec.save(norm, name)
 
@@ -171,12 +167,56 @@ def run():
         #                 "".format(im_time, im_name))
         # logger.info("It took {0:0.8f} seconds to detect and alter {1:d} "
         #             "images".format(sum(times), len(face_dtec.test_img)))
-        # for f in zip(found, face_dtec.test_im_names):
-        #     logger.info("Images idenftied correctly {}".format(f))
+        for f in zip(found, face_dtec.test_im_names):
+            logger.info("Images idenftied correctly {}".format(f))
 
     else:
         # Implementing the webcam code here
-        pass
+        import cv2
+        cascPath = args.cascade
+        faceCascade = cv2.CascadeClassifier(cascPath)
+        # blend_im = cv2.imread("Xiuwen_liu_Large.jpg")
+
+        video_capture = cv2.VideoCapture(0)
+
+        while True:
+            # Capture frame-by-frame
+            ret, frame = video_capture.read()
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            faces = faceCascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30),
+            )
+
+            # Draw a rectangle around the faces
+            for x, y, w, h in faces:
+                roi_color = frame[y: y + h, x: x + w]
+                '''
+                This function can take a number of arguments in place of
+                cv2.MORPH_x
+                Options in place of x:
+                OPEN, CLOSE, GRADIENT, TOPHAT, BLACKHAT'''
+                roi_color[:, :, :] = cv2.morphologyEx(
+                    roi_color, cv2.MORPH_GRADIENT, cv2.getStructuringElement(
+                     cv2.MORPH_ELLIPSE, (20, 20)))[:,:,:]
+                '''
+                This line plus line 182 will allow you to look like Dr. Liu
+                '''
+                # roi_color[:,:,:] = cv2.resize(blend_im, (w, h))[:,:,:]
+
+            # Display the resulting frame
+            cv2.imshow('Face Detection', frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        # When everything is done, release the capture
+        video_capture.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
