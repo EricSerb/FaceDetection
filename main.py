@@ -61,7 +61,11 @@ def run():
         'c': ('cascade', {
             # this will be changed to 'haar_cascade/cascade.xml'
             # once finished creating
-            'default': 'lbp_classifier/cascade.xml',
+            # 'default': 'lbp_classifier/cascade.xml',
+            'default': 'open_cv_face_classifier/'
+                       'haarcascade_frontalface_default.xml',
+            # 'default': 'open_cv_face_classifier/'
+            #            'haarcascade_frontalface_alt_tree.xml',
             'help': 'specify cascade.xml file to use for detection',
         }),
         't': ('test_imgs', {
@@ -117,6 +121,14 @@ def run():
             face_dtec.detect_faces(gray)
             norm = face_dtec.alter_faces(norm)
             times.append(clock() - start)
+
+            # Messing around with this profile face cascade to see if it works
+            face_dtec.detect_prof_faces(gray)
+            norm = face_dtec.alter_prof_faces(norm)
+
+            logger.info("Faces found in {}: {}".format(name, face_dtec.faces))
+            logger.info("Prof Faces found in {}: {}".format(name,
+                        face_dtec.prof_faces))
             # face_dtec.show(norm, name)
             face_dtec.save(norm, name)
 
@@ -131,6 +143,9 @@ def run():
             face_dtec.show(norm, name)
             face_dtec.save(norm, name)
     logger.info("Testing complete")
+    for im_time, im_name in zip(times, face_dtec.test_im_names):
+        logger.info("It took {0:0.8f} seconds to detect and alter {1}"
+                    "".format(im_time, im_name))
     logger.info("It took {0:0.8f} seconds to detect and alter {1:d} "
                 "images".format(sum(times), len(face_dtec.test_img)))
 
